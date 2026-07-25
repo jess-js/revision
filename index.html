@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>File Browser</title>
+
+  <style>
+    body {
+      max-width: 850px;
+      margin: 40px auto;
+      padding: 0 20px;
+      font-family: Arial, sans-serif;
+      background: #181818;
+      color: #eeeeee;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 8px 14px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    #path {
+      color: #aaaaaa;
+      word-break: break-all;
+    }
+
+    .entry {
+      display: block;
+      padding: 12px;
+      margin-bottom: 6px;
+      border-radius: 6px;
+      color: #70c8ff;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .entry:hover {
+      background: #2a2a2a;
+    }
+
+    .folder::before {
+      content: "📁 ";
+    }
+
+    .file::before {
+      content: "📄 ";
+    }
+
+    #message {
+      color: #ffb86c;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>File Browser</h1>
+
+  <header>
+    <button id="backButton" type="button">← Back</button>
+    <div id="path"></div>
+  </header>
+
+  <div id="message"></div>
+  <div id="listing"></div>
+
+  <script>
+    const GITHUB_USERNAME = "jess-js";
+    const GITHUB_REPOSITORY = "revision";
+
+    // Change this if GitHub Pages is deployed from another branch.
+    const BRANCH = "main";
+
+    const ROOT_FOLDER = "OuterFolder";
+    let currentFolder = ROOT_FOLDER;
+
+    const listing = document.getElementById("listing");
+    const pathDisplay = document.getElementById("path");
+    const message = document.getElementById("message");
+    const backButton = document.getElementById("backButton");
+
+    function apiUrl(path) {
+      const encodedPath = path
+        .split("/")
+        .map(encodeURIComponent)
+        .join("/");
+
+      return (
+        `https://api.github.com/repos/` +
+        `${GITHUB_USERNAME}/${GITHUB_REPOSITORY}/contents/` +
+        `${encodedPath}?ref=${encodeURIComponent(BRANCH)}`
+      );
+    }
+
+    async function loadFolder(path) {
+      currentFolder = path;
+
+      listing.innerHTML = "";
+      message.textContent = "Loading…";
+      pathDisplay.textContent = "/" + path;
+      backButton.disabled = path === ROOT_FOLDER;
+
+      try {
+        const response = await fetch(apiUrl(path), {
+          headers: {
+            Accept: "application/vnd.github+json"
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `GitHub returned ${response.status} ${response.statusText}`
+          );
+        }
+
+        const entries = await response.json();
+
+        if (!Array.isArray(entries)) {
+          throw new Error("The requested path is not a folder.");
+        }
+
+        message.textContent = "";
+
+        entries.sort((a, b) => {
+          if (a.type !== b.type) {
+            return a.type === "dir" ? -1 : 1;
+          }
+
+          return a.name.localeCompare(b.name);
+        });
+
+        if (entries.length === 0) {
+          message.textContent = "This folder is empty.";
+          return;
+        }
+
+        for (const entry of entries) {
+          const element = document.createElement("a");
+          element.classList.add("entry");
+
+          if (entry.type === "dir") {
+            element.classList.add("folder");
+            element.textContent = entry.name;
+            element.href = "#";
+
+            element.addEventListener("click", event => {
+              event.preventDefault();
+              loadFolder(entry.path);
+            });
+          } else {
+            element.classList.add("file");
+            element.textContent = entry.name;
+
+            // Opens the actual file served by GitHub Pages.
+            const relativePath = entry.path
+              .split("/")
+              .map(encodeURIComponent)
+              .join("/");
+
+            element.href = relativePath;
+          }
+
+          listing.appendChild(element);
+        }
+      } catch (error) {
+        message.textContent = `Unable to load this folder: ${error.message}`;
+      }
+    }
+
+    backButton.addEventListener("click", () => {
+      if (currentFolder === ROOT_FOLDER) {
+        return;
+      }
+
+      const parts = currentFolder.split("/");
+      parts.pop();
+
+      const parent = parts.join("/");
+
+      // Never permit navigation above OuterFolder.
+      loadFolder(
+        parent.startsWith(ROOT_FOLDER) ? parent : ROOT_FOLDER
+      );
+    });
+
+    loadFolder(ROOT_FOLDER);
+  </script>
+</body>
+</html>
