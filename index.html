@@ -83,7 +83,7 @@
     // Change this if GitHub Pages is deployed from another branch.
     const BRANCH = "main";
 
-    const ROOT_FOLDER = "OuterFolder";
+    const ROOT_FOLDER = "Specifications";
     let currentFolder = ROOT_FOLDER;
 
     const listing = document.getElementById("listing");
@@ -189,7 +189,7 @@
 
       const parent = parts.join("/");
 
-      // Never permit navigation above OuterFolder.
+      // Never permit navigation above Specifications.
       loadFolder(
         parent.startsWith(ROOT_FOLDER) ? parent : ROOT_FOLDER
       );
